@@ -10,12 +10,13 @@ const {
     sendMenu,
 } = require('./command');
 
-const SESSION_DIR = path.join(__dirname, 'wwebjs_auth');
+const SESSION_DIR = path.join('/tmp', 'wwebjs_auth'); // Menggunakan /tmp
 
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 }
 
+// Fungsi untuk memulai klien
 async function startClient() {
     const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-gpu'],
@@ -24,16 +25,15 @@ async function startClient() {
 
     const client = new Client({
         authStrategy: new LocalAuth({
-            clientId: 'client-one', // Client ID can be any string
-            dataPath: SESSION_DIR, // Specify the writable directory
+            clientId: 'client-one', // Client ID bisa berupa string apa saja
+            dataPath: SESSION_DIR, // Menentukan direktori yang dapat ditulis
         }),
         puppeteer: {
             browserWSEndpoint: browser.wsEndpoint(),
         },
         webVersionCache: {
             type: 'remote',
-            remotePath:
-                'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
         },
     });
 
@@ -51,12 +51,7 @@ async function startClient() {
     });
 
     client.on('message', async (message) => {
-        console.log(
-            'New message:',
-            message.body,
-            'new caption:',
-            message.caption
-        );
+        console.log('New message:', message.body, 'new caption:', message.caption);
 
         try {
             if (message.body === '!ping') {
@@ -66,29 +61,21 @@ async function startClient() {
                     await message.reply('pong');
                 } else if (
                     message.type === 'image' ||
-                    (message.type === 'video' &&
-                        message.body.startsWith('.sticker'))
+                    (message.type === 'video' && message.body.startsWith('.sticker'))
                 ) {
                     if (message.isViewOnce) {
                         const mediaData = await client.decryptMedia(message);
-                        await client.sendMessage(message.from, mediaData, {
-                            caption: '!stail',
-                        });
+                        await client.sendMessage(message.from, mediaData, { caption: '!stail' });
                     } else {
                         const media = await message.downloadMedia();
-                        await client.sendMessage(message.from, media, {
-                            caption: '!stail',
-                        });
+                        await client.sendMessage(message.from, media, { caption: '!stail' });
                     }
                 }
             } else if (message.body.startsWith('.list')) {
                 await handleListCommand(message);
             } else if (message.body.startsWith('.resetlist')) {
                 await handleResetCommand(message);
-            } else if (
-                message.body === '.menu' ||
-                message.body === '.allmenu'
-            ) {
+            } else if (message.body === '.menu' || message.body === '.allmenu') {
                 await sendMenu(message);
             }
         } catch (err) {
