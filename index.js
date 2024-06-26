@@ -10,7 +10,7 @@ const {
     sendMenu,
 } = require('./command');
 
-// Ensure the directory exists
+// Ensure the directory for storing session exists
 const SESSION_DIR = path.join(__dirname, 'wwebjs_auth');
 
 if (!fs.existsSync(SESSION_DIR)) {
@@ -19,8 +19,8 @@ if (!fs.existsSync(SESSION_DIR)) {
 
 client = new Client({
     authStrategy: new LocalAuth({
-        clientId: 'client-one',
-        dataPath: SESSION_DIR,
+        clientId: 'client-one', // Client ID can be any string
+        dataPath: SESSION_DIR, // Specify the writable directory
     }),
     puppeteer: {
         headless: true,
@@ -28,7 +28,8 @@ client = new Client({
     },
     webVersionCache: {
         type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        remotePath:
+            'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
     },
 });
 let qrDisplayed = false;
@@ -50,39 +51,43 @@ client.on('ready', () => {
 
 client.on('message', async (message) => {
     console.log('New message:', message.body, 'new caption:', message.caption);
-
-    if (message.body === '!ping') {
-        await message.reply('pong');
-    } else if (message.body.startsWith('.stiker')) {
+    try {
         if (message.body === '!ping') {
             await message.reply('pong');
-        } else if (
-            message.type === 'image' ||
-            (message.type === 'video' && message.body.startsWith('.sticker'))
-        ) {
-            if (message.isViewOnce) {
-                const mediaData = await client.decryptMedia(message);
-                await client.sendMessage(message.from, mediaData, {
-                    caption: '!stail',
-                });
-            } else {
-                const media = await message.downloadMedia();
-                await client.sendMessage(message.from, media, {
-                    caption: '!stail',
-                });
+        } else if (message.body.startsWith('.stiker')) {
+            if (message.body === '!ping') {
+                await message.reply('pong');
+            } else if (
+                message.type === 'image' ||
+                (message.type === 'video' &&
+                    message.body.startsWith('.sticker'))
+            ) {
+                if (message.isViewOnce) {
+                    const mediaData = await client.decryptMedia(message);
+                    await client.sendMessage(message.from, mediaData, {
+                        caption: '!stail',
+                    });
+                } else {
+                    const media = await message.downloadMedia();
+                    await client.sendMessage(message.from, media, {
+                        caption: '!stail',
+                    });
+                }
             }
+        } else if (message.body.startsWith('.list')) {
+            await handleListCommand(message);
+        } else if (message.body.startsWith('.resetlist')) {
+            await handleResetCommand(message);
+        } else if (message.body === '.menu' || message.body === '.allmenu') {
+            await sendMenu(message);
         }
-    } else if (message.body.startsWith('.list')) {
-        await handleListCommand(message);
-    } else if (message.body.startsWith('.resetlist')) {
-        await handleResetCommand(message);
-    } else if (message.body === '.menu' || message.body === '.allmenu') {
-        await sendMenu(message);
+    } catch (err) {
+        console.error('Error handling message:', err);
     }
 });
 
 client.on('disconnect', (reason) => {
-    console.log('Disconnect whatsapp bot', reason);
+    console.log('WhatsApp bot disconnected', reason);
 });
 
 http.createServer((req, res) => {
@@ -90,4 +95,8 @@ http.createServer((req, res) => {
     res.end();
 }).listen(8080);
 
-client.initialize();
+try {
+    client.initialize();
+} catch (err) {
+    console.error('Error initializing client:', err);
+}
