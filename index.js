@@ -1,60 +1,63 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
-const path = require('path');
 const http = require('http');
-const chrome = require('chrome-aws-lambda');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
+const path = require('path');
 const {
     handleListCommand,
-    handleSholatCommand,
     handleResetCommand,
     sendMenu,
 } = require('./command');
 
-// Ensure the directory for storing session exists
 const SESSION_DIR = path.join(__dirname, 'wwebjs_auth');
 
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR, { recursive: true });
 }
 
-const startClient = async () => {
+async function startClient() {
     const browser = await puppeteer.launch({
-        args: [...chrome.args, '--no-sandbox', '--disable-gpu'],
-        executablePath: await chrome.executablePath,
-        headless: chrome.headless,
+        args: ['--no-sandbox', '--disable-gpu'],
+        headless: true,
     });
 
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: 'client-one', // Client ID can be any string
-            dataPath: SESSION_DIR,  // Specify the writable directory
+            dataPath: SESSION_DIR, // Specify the writable directory
         }),
         puppeteer: {
             browserWSEndpoint: browser.wsEndpoint(),
         },
+        webVersionCache: {
+            type: 'remote',
+            remotePath:
+                'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        },
     });
-
-    let qrDisplayed = false;
 
     client.on('qr', (qr) => {
         console.log('QR code received, scan please');
         qrcode.generate(qr, { small: true });
-        qrDisplayed = true;
     });
 
-    client.on('authenticated', (session) => {
+    client.on('authenticated', async (session) => {
         console.log('Authenticated');
     });
 
     client.on('ready', () => {
         console.log('Client is ready');
-        qrDisplayed = false;
     });
 
     client.on('message', async (message) => {
-        console.log('New message:', message.body, 'new caption:', message.caption);
+        console.log(
+            'New message:',
+            message.body,
+            'new caption:',
+            message.caption
+        );
+
         try {
             if (message.body === '!ping') {
                 await message.reply('pong');
@@ -63,7 +66,8 @@ const startClient = async () => {
                     await message.reply('pong');
                 } else if (
                     message.type === 'image' ||
-                    (message.type === 'video' && message.body.startsWith('.sticker'))
+                    (message.type === 'video' &&
+                        message.body.startsWith('.sticker'))
                 ) {
                     if (message.isViewOnce) {
                         const mediaData = await client.decryptMedia(message);
@@ -81,7 +85,10 @@ const startClient = async () => {
                 await handleListCommand(message);
             } else if (message.body.startsWith('.resetlist')) {
                 await handleResetCommand(message);
-            } else if (message.body === '.menu' || message.body === '.allmenu') {
+            } else if (
+                message.body === '.menu' ||
+                message.body === '.allmenu'
+            ) {
                 await sendMenu(message);
             }
         } catch (err) {
@@ -90,7 +97,7 @@ const startClient = async () => {
     });
 
     client.on('disconnect', (reason) => {
-        console.log('WhatsApp bot disconnected', reason);
+        console.log('Disconnect whatsapp bot', reason);
     });
 
     http.createServer((req, res) => {
@@ -99,10 +106,10 @@ const startClient = async () => {
     }).listen(8080);
 
     try {
-        client.initialize();
+        await client.initialize();
     } catch (err) {
         console.error('Error initializing client:', err);
     }
-};
+}
 
 startClient();
