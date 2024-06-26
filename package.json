@@ -18,6 +18,10 @@
         "date-fns": "^3.6.0",
         "fs": "^0.0.1-security",
         "qrcode-terminal": "^0.12.0",
-        "whatsapp-web.js": "^1.23.0"
+        "whatsapp-web.js": "^1.23.0",
+        "path": "^0.12.7",
+        "http": "0.0.1-security",
+        "puppeteer-core": "^15.5.0",
+        "chrome-aws-lambda": "^10.1.0"
     }
 }
