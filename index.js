@@ -1,6 +1,5 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const fs = require('fs');
 const http = require('http');
 const {
     handleListCommand,
@@ -9,10 +8,13 @@ const {
     sendMenu,
 } = require('./command');
 
-const SESSION_FILE_PATH = './session.json';
+let sessionData = null;
 
 client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        clientId: 'client-one', // This can be any string for client ID
+        dataPath: './wwebjs_auth', // Use a writable path, e.g., a directory in your project
+    }),
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-gpu'],
@@ -25,15 +27,6 @@ client = new Client({
 });
 let qrDisplayed = false;
 
-// Function to check and load the saved session
-const loadSession = () => {
-    if (fs.existsSync(SESSION_FILE_PATH)) {
-        const sessionData = fs.readFileSync(SESSION_FILE_PATH, 'utf8');
-        return JSON.parse(sessionData);
-    }
-    return null;
-};
-
 client.on('qr', (qr) => {
     console.log('QR code received, scan please');
     qrcode.generate(qr, { small: true });
@@ -42,19 +35,7 @@ client.on('qr', (qr) => {
 
 client.on('authenticated', (session) => {
     console.log('Authenticated');
-
-    // Check if the session object is defined before writing it to the file
-    if (session) {
-        fs.writeFileSync(SESSION_FILE_PATH, JSON.stringify(session), (err) => {
-            if (err) {
-                console.error('Error saving session:', err);
-            } else {
-                console.log('Session saved successfully');
-            }
-        });
-    } else {
-        console.error('Session is undefined');
-    }
+    sessionData = session; // Store session data in memory
 });
 
 client.on('ready', () => {
@@ -93,18 +74,6 @@ client.on('message', async (message) => {
     } else if (message.body === '.menu' || message.body === '.allmenu') {
         await sendMenu(message);
     }
-
-    // if (message.body === '!ping') {
-    //     await message.reply('pong');
-    // } else if (message.type === 'image' || message.type === 'video' && message.body.startsWith(".sticker")) {
-    //     if (message.isViewOnce) {
-    //         const mediaData = await client.decryptMedia(message);
-    //         await client.sendMessage(message.from, mediaData, { caption: "!stail" });
-    //     } else {
-    //         const media = await message.downloadMedia();
-    //         await client.sendMessage(message.from, media, { caption: "!stail" });
-    //     }
-    // }
 });
 
 client.on('disconnect', (reason) => {
@@ -116,8 +85,4 @@ http.createServer((req, res) => {
     res.end();
 }).listen(8080);
 
-// Try to load the saved session
-const savedSession = loadSession();
-
-// Initialize the client with the saved session or perform a new authentication
-client.initialize(savedSession);
+client.initialize();
