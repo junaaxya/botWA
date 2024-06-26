@@ -1,5 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const {
     handleListCommand,
@@ -8,12 +10,17 @@ const {
     sendMenu,
 } = require('./command');
 
-let sessionData = null;
+// Ensure the directory exists
+const SESSION_DIR = path.join(__dirname, 'wwebjs_auth');
+
+if (!fs.existsSync(SESSION_DIR)) {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+}
 
 client = new Client({
     authStrategy: new LocalAuth({
-        clientId: 'client-one', // This can be any string for client ID
-        dataPath: './wwebjs_auth', // Use a writable path, e.g., a directory in your project
+        clientId: 'client-one',
+        dataPath: SESSION_DIR,
     }),
     puppeteer: {
         headless: true,
@@ -21,8 +28,7 @@ client = new Client({
     },
     webVersionCache: {
         type: 'remote',
-        remotePath:
-            'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
     },
 });
 let qrDisplayed = false;
@@ -35,7 +41,6 @@ client.on('qr', (qr) => {
 
 client.on('authenticated', (session) => {
     console.log('Authenticated');
-    sessionData = session; // Store session data in memory
 });
 
 client.on('ready', () => {
